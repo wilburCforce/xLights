@@ -23,6 +23,7 @@
 #include "../import_export/SeqExportDialog.h"
 #include "layout/LayoutPanel.h"
 #include "models/Model.h"
+#include "models/Pixels.h"
 #include "models/ModelGroup.h"
 #include "models/RulerObject.h"
 #include "outputs/OutputManager.h"
@@ -113,7 +114,7 @@ void xLightsFrame::ExportModels(wxString const& filename)
             }
 
             if (stype.Contains("Node") || stype.Contains("Channel RGB")) {
-                current = wxString::Format("%0.2f", (float)lightcount * AMPS_PER_PIXEL).ToStdString();
+                current = wxString::Format("%0.2f", (float)lightcount * (float)GetModelPowerLimit(*model)).ToStdString();
             }
 
             int w, h;
@@ -127,7 +128,7 @@ void xLightsFrame::ExportModels(wxString const& filename)
             worksheet_write_number(modelsheet, row, 6, model->GetNumPhysicalStrings(), format);
             worksheet_write_number(modelsheet, row, 7, model->GetNodeCount(), format);
             worksheet_write_number(modelsheet, row, 8, lightcount, format);
-            worksheet_write_number(modelsheet, row, 9, (float)lightcount * AMPS_PER_PIXEL, format);
+            worksheet_write_number(modelsheet, row, 9, (float)lightcount * (float)GetModelPowerLimit(*model), format);
             worksheet_write_number(modelsheet, row, 10, model->GetChanCountPerNode(), format);
             worksheet_write_number(modelsheet, row, 11, model->GetActChanCount(), format);
             write_worksheet_string(modelsheet, row, 12, stch, format, _model_col_widths);

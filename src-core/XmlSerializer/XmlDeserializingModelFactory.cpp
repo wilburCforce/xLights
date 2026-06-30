@@ -261,6 +261,7 @@ void XmlDeserializingModelFactory::DeserializeCommonModelAttributes(Model* model
     model->SetPixelSize(node.attribute(XmlNodeKeys::PixelSizeAttribute).as_int(2));
     model->SetRGBWHandling(node.attribute(XmlNodeKeys::RGBWHandleAttribute).as_string());
     model->SetStringType(node.attribute(XmlNodeKeys::StringTypeAttribute).as_string("RGB Nodes"));
+    model->SetVendorPixelProfile(node.attribute(XmlNodeKeys::VendorPixelProfileAttribute).as_string(""));
     model->SetLowDefFactor(node.attribute(XmlNodeKeys::LowDefinitionAttribute).as_int(100));
     model->SetShadowModelFor(node.attribute(XmlNodeKeys::ShadowModelAttribute).as_string(""));
     model->SetTransparency(node.attribute(XmlNodeKeys::TransparencyAttribute).as_int(0));

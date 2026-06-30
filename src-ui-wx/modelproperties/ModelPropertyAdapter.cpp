@@ -35,6 +35,7 @@
 #include "UtilFunctions.h"
 #include "models/Pixels.h"
 #include "shared/utils/wxUtilities.h"
+#include "settings/XLightsConfigAdapter.h"
 
 // Dialog adapters - these need to stay accessible for PopupDialogProperty etc.
 #include "../model/StrandNodeNamesDialog.h"
@@ -55,6 +56,30 @@
 static wxArrayString LAYOUT_GROUPS;
 static wxArrayString CONTROLLERS;
 static wxArrayString OTHERMODELLIST;
+
+static wxArrayString GetVendorPixelProfileChoices()
+{
+    wxArrayString choices;
+    choices.Add("<Default>");
+
+    auto* config = GetXLightsConfig();
+    if (config == nullptr) {
+        return choices;
+    }
+
+    const std::string profiles = config->Read("VendorPixelProfiles", std::string(""));
+    if (profiles.empty()) {
+        return choices;
+    }
+
+    for (const auto& name : GetUserPixelProfileNames(DeserializeUserPixelProfiles(profiles))) {
+        if (!name.empty()) {
+            choices.Add(name);
+        }
+    }
+
+    return choices;
+}
 
 //--- Dialog adapter classes (moved from Model.cpp) ---
 
@@ -516,6 +541,13 @@ void ModelPropertyAdapter::AddProperties(wxPropertyGridInterface* grid, OutputMa
     if (_model.HasSingleChannel(_model.GetStringType()) || _model.GetNodeChannelCount(_model.GetStringType()) < 4) {
         sp->Enable(false);
     }
+
+    wxArrayString vendorProfiles = GetVendorPixelProfileChoices();
+    int vendorProfileIndex = vendorProfiles.Index(_model.GetVendorPixelProfile());
+    if (vendorProfileIndex == wxNOT_FOUND) {
+        vendorProfileIndex = 0;
+    }
+    sp = grid->AppendIn(p, new wxEnumProperty("Vendor Pixel Profile", "ModelVendorPixelProfile", vendorProfiles, wxArrayInt(), vendorProfileIndex));
 
     p = grid->Append(new wxPropertyCategory("Appearance", "ModelAppearance"));
     sp = grid->AppendIn(p, new wxBoolProperty("Active", "Active", _model.IsActive()));
@@ -1616,7 +1648,7 @@ int ModelPropertyAdapter::OnPropertyGridChange(wxPropertyGridInterface* grid, wx
         _model.SetSuperStringColour(index, xc);
         event.GetProperty()->SetValue(WXVARIANT(xlColorToWxColour(xc)));
         return 0;
-    } else if (event.GetPropertyName() == "ModelStringColor" || event.GetPropertyName() == "ModelStringType" || event.GetPropertyName() == "ModelRGBWHandling") {
+    } else if (event.GetPropertyName() == "ModelStringColor" || event.GetPropertyName() == "ModelStringType" || event.GetPropertyName() == "ModelRGBWHandling" || event.GetPropertyName() == "ModelVendorPixelProfile") {
         wxPGProperty* p2 = grid->GetPropertyByName("ModelStringType");
         int i = p2->GetValue().GetLong();
         if (NODE_TYPES[i] == "Single Color" || NODE_TYPES[i] == "Single Color Intensity" || NODE_TYPES[i] == "Node Single Color") {
@@ -1646,6 +1678,17 @@ int ModelPropertyAdapter::OnPropertyGridChange(wxPropertyGridInterface* grid, wx
         if (_model.GetNodeChannelCount(_model.GetStringType()) > 3) {
             p2 = grid->GetPropertyByName("ModelRGBWHandling");
             _model.SetRGBWHandling(RGBW_HANDLING[p2->GetValue().GetLong()]);
+        }
+        wxPGProperty* profileProp = grid->GetPropertyByName("ModelVendorPixelProfile");
+        if (profileProp != nullptr) {
+            int profileIndex = profileProp->GetValue().GetLong();
+            wxArrayString profileChoices = GetVendorPixelProfileChoices();
+            if (profileIndex <= 0 || profileIndex >= (int)profileChoices.size()) {
+                _model.SetVendorPixelProfile("");
+            } else {
+                const std::string profileName = profileChoices[profileIndex].ToStdString();
+                _model.SetVendorPixelProfile(profileName);
+            }
         }
         _model.IncrementChangeCount();
         _model.AddASAPWork(OutputModelManager::WORK_RELOAD_MODEL_FROM_XML |

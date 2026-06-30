@@ -44,6 +44,7 @@
 #include "utils/CurlManager.h"
 #include "render/SequencePackage.h"
 #include "utils/AppCallbacks.h"
+#include "models/Pixels.h"
 #ifdef __APPLE__
 #include "osxUtils/XLMetricKit.h"
 #endif
@@ -628,6 +629,13 @@ bool xLightsApp::OnInit()
     SetIsxLights(true);
     GetResourcesDirectory(); // bootstrap GetResourcesDir() with wx-dependent path lookup
     InitializeXLightsConfig();
+    SetUserPixelProfileCatalogProvider([]() {
+        auto* config = GetXLightsConfig();
+        if (config == nullptr) {
+            return std::string("");
+        }
+        return config->Read("VendorPixelProfiles", std::string(""));
+    });
     DumpConfig();
 
 #ifdef __WXMSW__

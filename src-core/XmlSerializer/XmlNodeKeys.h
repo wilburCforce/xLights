@@ -117,6 +117,7 @@ namespace XmlNodeKeys {
     constexpr auto XLVersionAttribute       = "xLightsVersion";
     constexpr auto SettingsAttribute        = "settings";
     constexpr auto CustomColorAttribute     = "CustomColor";
+    constexpr auto VendorPixelProfileAttribute = "VendorPixelProfile";
     constexpr auto ModelBrightnessAttribute = "ModelBrightness";
     constexpr auto LowDefinitionAttribute   = "LowDefinition";
     constexpr auto ModelChainAttribute      = "ModelChain";

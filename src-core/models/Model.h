@@ -341,6 +341,7 @@ protected:
     std::vector<int32_t> stringStartChan;
     bool isBotToTop = true;
     std::string StringType = "RGB Nodes"; // RGB Nodes, 3 Channel RGB, Single Color Red, Single Color Green, Single Color Blue, Single Color White
+    std::string vendorPixelProfile;
     int rgbwHandlingType = 0;
     std::vector<xlColor> superStringColours;
     xlColor customColor;
@@ -508,6 +509,8 @@ public:
     bool HitTest(IModelPreview* preview, glm::vec3& ray_origin, glm::vec3& ray_direction);
     const std::string& GetStringType() const { return StringType; }
     void SetStringType(std::string const& st) { StringType = st; }
+    [[nodiscard]] const std::string& GetVendorPixelProfile() const { return vendorPixelProfile; }
+    void SetVendorPixelProfile(const std::string& profile) { vendorPixelProfile = profile; }
 
     virtual int NodesPerString() const;
     virtual int NodesPerString(int string) const;

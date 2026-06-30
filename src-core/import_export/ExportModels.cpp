@@ -18,6 +18,7 @@
 #include "models/ModelManager.h"
 #include "models/RulerObject.h"
 #include "models/DisplayAsType.h"
+#include "models/Pixels.h"
 #include "outputs/OutputManager.h"
 #include "outputs/Controller.h"
 #include "outputs/ControllerEthernet.h"
@@ -187,7 +188,7 @@ bool ExportModels(const std::string& filename, ModelManager& allModels, OutputMa
             worksheet_write_number(modelsheet, row, 6, model->GetNumPhysicalStrings(), format);
             worksheet_write_number(modelsheet, row, 7, model->GetNodeCount(), format);
             worksheet_write_number(modelsheet, row, 8, lightcount, format);
-            worksheet_write_number(modelsheet, row, 9, (float)lightcount * AMPS_PER_PIXEL, format);
+            worksheet_write_number(modelsheet, row, 9, (float)lightcount * (float)GetModelPowerLimit(*model), format);
             worksheet_write_number(modelsheet, row, 10, model->GetChanCountPerNode(), format);
             worksheet_write_number(modelsheet, row, 11, model->GetActChanCount(), format);
             write_worksheet_string(modelsheet, row, 12, stch, format, _model_col_widths);

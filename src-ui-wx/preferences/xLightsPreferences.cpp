@@ -16,8 +16,16 @@
 #include <wx/bmpbndl.h>
 #include <wx/listbook.h>
 #include <wx/scrolwin.h>
+#include <wx/button.h>
+#include <wx/listbox.h>
+#include <wx/msgdlg.h>
+#include <wx/spinctrl.h>
+#include <wx/stattext.h>
+#include <wx/textctrl.h>
 
 #include "xLightsMain.h"
+#include "settings/XLightsConfigAdapter.h"
+#include "models/Pixels.h"
 
 #include "ViewSettingsPanel.h"
 #include "EffectsGridSettingsPanel.h"
@@ -97,6 +105,166 @@ private:
     wxBitmapBundle m_icon;
     wxString m_name;
     std::function<wxWindow*(wxWindow*)> m_createFunction;
+};
+
+class PixelProfilesSettingsPanel : public wxPanel {
+public:
+    explicit PixelProfilesSettingsPanel(wxWindow* parent, xLightsFrame* /*frame*/)
+        : wxPanel(parent, wxID_ANY)
+    {
+        auto* topSizer = new wxBoxSizer(wxVERTICAL);
+        auto* title = new wxStaticText(this, wxID_ANY, _("Define reusable pixel power profiles for model power calculations."));
+        topSizer->Add(title, 0, wxALL, 5);
+
+        auto* mainSizer = new wxBoxSizer(wxHORIZONTAL);
+        _profileList = new wxListBox(this, wxID_ANY);
+        mainSizer->Add(_profileList, 1, wxEXPAND | wxALL, 5);
+
+        auto* editorSizer = new wxBoxSizer(wxVERTICAL);
+        editorSizer->Add(new wxStaticText(this, wxID_ANY, _("Profile Name")), 0, wxLEFT | wxRIGHT | wxTOP, 5);
+        _nameCtrl = new wxTextCtrl(this, wxID_ANY);
+        editorSizer->Add(_nameCtrl, 0, wxEXPAND | wxALL, 5);
+
+        editorSizer->Add(new wxStaticText(this, wxID_ANY, _("Voltage (V)")), 0, wxLEFT | wxRIGHT | wxTOP, 5);
+        _voltageCtrl = new wxSpinCtrlDouble(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0.0, 1000.0, 12.0, 0.1);
+        editorSizer->Add(_voltageCtrl, 0, wxEXPAND | wxALL, 5);
+
+        editorSizer->Add(new wxStaticText(this, wxID_ANY, _("Consumption (Watts per 100 pixels)")), 0, wxLEFT | wxRIGHT | wxTOP, 5);
+        _wattsCtrl = new wxSpinCtrlDouble(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0.0, 1000.0, 10.0, 0.1);
+        editorSizer->Add(_wattsCtrl, 0, wxEXPAND | wxALL, 5);
+
+        auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+        _newButton = new wxButton(this, wxID_ANY, _("New"));
+        _addUpdateButton = new wxButton(this, wxID_ANY, _("Add/Update"));
+        _deleteButton = new wxButton(this, wxID_ANY, _("Delete"));
+        buttonSizer->Add(_newButton, 1, wxALL, 5);
+        buttonSizer->Add(_addUpdateButton, 1, wxALL, 5);
+        buttonSizer->Add(_deleteButton, 1, wxALL, 5);
+        editorSizer->Add(buttonSizer, 0, wxEXPAND);
+
+        editorSizer->AddStretchSpacer();
+        mainSizer->Add(editorSizer, 1, wxEXPAND | wxALL, 5);
+
+        topSizer->Add(mainSizer, 1, wxEXPAND);
+        SetSizer(topSizer);
+
+        _profileList->Bind(wxEVT_LISTBOX, &PixelProfilesSettingsPanel::OnProfileSelected, this);
+        _newButton->Bind(wxEVT_BUTTON, &PixelProfilesSettingsPanel::OnNew, this);
+        _addUpdateButton->Bind(wxEVT_BUTTON, &PixelProfilesSettingsPanel::OnAddOrUpdate, this);
+        _deleteButton->Bind(wxEVT_BUTTON, &PixelProfilesSettingsPanel::OnDelete, this);
+    }
+
+    bool TransferDataToWindow() override {
+        auto* config = GetXLightsConfig();
+        _profiles = DeserializeUserPixelProfiles(config->Read("VendorPixelProfiles", std::string("")));
+        RefreshList();
+        ClearEditor();
+        return true;
+    }
+
+    bool TransferDataFromWindow() override {
+        auto* config = GetXLightsConfig();
+        config->Write("VendorPixelProfiles", SerializeUserPixelProfiles(_profiles));
+        return true;
+    }
+
+private:
+    wxListBox* _profileList = nullptr;
+    wxTextCtrl* _nameCtrl = nullptr;
+    wxSpinCtrlDouble* _voltageCtrl = nullptr;
+    wxSpinCtrlDouble* _wattsCtrl = nullptr;
+    wxButton* _newButton = nullptr;
+    wxButton* _addUpdateButton = nullptr;
+    wxButton* _deleteButton = nullptr;
+    std::vector<UserPixelProfile> _profiles;
+
+    void RefreshList() {
+        _profileList->Clear();
+        for (const auto& profile : _profiles) {
+            _profileList->Append(profile.name);
+        }
+    }
+
+    void ClearEditor() {
+        _profileList->SetSelection(wxNOT_FOUND);
+        _nameCtrl->ChangeValue("");
+        _voltageCtrl->SetValue(12.0);
+        _wattsCtrl->SetValue(10.0);
+    }
+
+    void SaveIfImmediateApply() {
+        if (wxPreferencesEditor::ShouldApplyChangesImmediately()) {
+            TransferDataFromWindow();
+        }
+    }
+
+    void OnProfileSelected(wxCommandEvent&) {
+        int index = _profileList->GetSelection();
+        if (index == wxNOT_FOUND || index >= (int)_profiles.size()) {
+            return;
+        }
+
+        const auto& profile = _profiles[index];
+        _nameCtrl->ChangeValue(profile.name);
+        _voltageCtrl->SetValue(profile.voltage);
+        _wattsCtrl->SetValue(profile.wattsPer100Pixels);
+    }
+
+    void OnNew(wxCommandEvent&) {
+        ClearEditor();
+    }
+
+    void OnAddOrUpdate(wxCommandEvent&) {
+        const std::string name = _nameCtrl->GetValue().ToStdString();
+        if (name.empty()) {
+            wxMessageBox(_("Profile name is required."), _("Pixel Profiles"), wxOK | wxICON_WARNING, this);
+            return;
+        }
+        if (name.find('|') != std::string::npos || name.find('^') != std::string::npos) {
+            wxMessageBox(_("Profile name cannot include '|' or '^'."), _("Pixel Profiles"), wxOK | wxICON_WARNING, this);
+            return;
+        }
+
+        UserPixelProfile profile;
+        profile.name = name;
+        profile.voltage = _voltageCtrl->GetValue();
+        profile.wattsPer100Pixels = _wattsCtrl->GetValue();
+
+        int existingIndex = wxNOT_FOUND;
+        for (int i = 0; i < (int)_profiles.size(); ++i) {
+            if (_profiles[i].name == profile.name) {
+                existingIndex = i;
+                break;
+            }
+        }
+
+        int selected = _profileList->GetSelection();
+        if (selected != wxNOT_FOUND && selected < (int)_profiles.size() && _profiles[selected].name == profile.name) {
+            _profiles[selected] = profile;
+            existingIndex = selected;
+        } else if (existingIndex != wxNOT_FOUND) {
+            _profiles[existingIndex] = profile;
+        } else {
+            _profiles.push_back(profile);
+            existingIndex = (int)_profiles.size() - 1;
+        }
+
+        RefreshList();
+        _profileList->SetSelection(existingIndex);
+        SaveIfImmediateApply();
+    }
+
+    void OnDelete(wxCommandEvent&) {
+        const int selected = _profileList->GetSelection();
+        if (selected == wxNOT_FOUND || selected >= (int)_profiles.size()) {
+            return;
+        }
+
+        _profiles.erase(_profiles.begin() + selected);
+        RefreshList();
+        ClearEditor();
+        SaveIfImmediateApply();
+    }
 };
 
 #ifndef __WXOSX__
@@ -205,6 +373,10 @@ void xLightsFrame::OnMenuItemPreferencesSelected(wxCommandEvent& event)
                       wxArtProvider::GetBitmapBundle("xlART_RENDER_ALL", wxART_BUTTON, iconSize),
                       wxArtProvider::GetBitmapBundle("xlART_RENDER_ALL", wxART_BUTTON, listIconSize),
                       [this](wxWindow* p) { return (wxWindow*)(new ColorManagerSettingsPanel(p, this)); } });
+    pages.push_back({ "Pixel Profiles",
+                      wxArtProvider::GetBitmapBundle("xlART_SETTINGS", wxART_BUTTON, iconSize),
+                      wxArtProvider::GetBitmapBundle("xlART_SETTINGS", wxART_BUTTON, listIconSize),
+                      [this](wxWindow* p) { return (wxWindow*)(new PixelProfilesSettingsPanel(p, this)); } });
     pages.push_back({ "Other",
                       wxBitmapBundle(settingIcon),
                       scaledBundle(settingsImage, listIconSize),

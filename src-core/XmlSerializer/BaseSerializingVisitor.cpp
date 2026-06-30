@@ -149,6 +149,9 @@ void BaseSerializingVisitor::AddCommonModelAttributes(const Model& model, AttrCo
         attrs.Add(XmlNodeKeys::RGBWHandleAttribute, model.GetRGBWHandling());
     }
     attrs.Add(XmlNodeKeys::StringTypeAttribute, model.GetStringType());
+    if (!model.GetVendorPixelProfile().empty()) {
+        attrs.Add(XmlNodeKeys::VendorPixelProfileAttribute, model.GetVendorPixelProfile());
+    }
     attrs.Add(XmlNodeKeys::TransparencyAttribute, std::to_string(model.GetTransparency()));
     if (model.GetBlackTransparency() != 0) {
         attrs.Add(XmlNodeKeys::BTransparencyAttribute, std::to_string(model.GetBlackTransparency()));

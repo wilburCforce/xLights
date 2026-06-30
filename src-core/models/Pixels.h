@@ -12,6 +12,15 @@
 
 #include <vector>
 #include <string>
+#include <functional>
+
+class Model;
+
+struct UserPixelProfile {
+	std::string name;
+	double voltage = 0.0;
+	double wattsPer100Pixels = 0.0;
+};
 
 std::string ChooseBestControllerPixel(const std::vector<std::string>& controllerPixels, const std::string& selectedPixel);
 std::vector<std::string> GetAllPixelTypes(bool includeSerial = false, bool includeArtificial = true, bool includeMatrices = true);
@@ -27,3 +36,11 @@ bool IsPWMProtocol(const std::string& p1);
 bool IsLEDPanelMatrixProtocol(const std::string& p1);
 bool IsVirtualMatrixProtocol(const std::string& p1);
 int GetChannelsPerPixel(const std::string& p);
+
+std::vector<UserPixelProfile> DeserializeUserPixelProfiles(const std::string& encodedProfiles);
+std::string SerializeUserPixelProfiles(const std::vector<UserPixelProfile>& profiles);
+std::vector<std::string> GetUserPixelProfileNames(const std::vector<UserPixelProfile>& profiles);
+const UserPixelProfile* FindUserPixelProfileByName(const std::vector<UserPixelProfile>& profiles, const std::string& profileName);
+
+void SetUserPixelProfileCatalogProvider(const std::function<std::string()>& provider);
+double GetModelPowerLimit(const Model& model);

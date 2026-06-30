@@ -9,8 +9,17 @@
  **************************************************************/
 
 #include "Pixels.h"
+#include "Model.h"
+#include "UtilFunctions.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <functional>
+#include <sstream>
+
+namespace {
+std::function<std::string()> __profileCatalogProvider;
+}
 
 // ***********************************************************************************************
 // *                                                                                             *
@@ -373,4 +382,107 @@ int GetChannelsPerPixel(const std::string& p)
     }
 
     return 3;
+}
+
+std::vector<UserPixelProfile> DeserializeUserPixelProfiles(const std::string& encodedProfiles)
+{
+    std::vector<UserPixelProfile> profiles;
+    if (encodedProfiles.empty()) {
+        return profiles;
+    }
+
+    std::stringstream entries(encodedProfiles);
+    std::string entry;
+    while (std::getline(entries, entry, '|')) {
+        if (entry.empty()) {
+            continue;
+        }
+
+        std::stringstream fields(entry);
+        std::string name;
+        std::string voltage;
+        std::string watts;
+        if (!std::getline(fields, name, '^')) {
+            continue;
+        }
+
+        if (name.empty()) {
+            continue;
+        }
+
+        UserPixelProfile profile;
+        profile.name = name;
+        if (std::getline(fields, voltage, '^') && std::getline(fields, watts, '^')) {
+            profile.voltage = std::strtod(voltage.c_str(), nullptr);
+            profile.wattsPer100Pixels = std::strtod(watts.c_str(), nullptr);
+        }
+        profiles.push_back(profile);
+    }
+
+    return profiles;
+}
+
+std::string SerializeUserPixelProfiles(const std::vector<UserPixelProfile>& profiles)
+{
+    std::string encoded;
+    for (const auto& profile : profiles) {
+        if (profile.name.empty()) {
+            continue;
+        }
+
+        if (!encoded.empty()) {
+            encoded += "|";
+        }
+
+        encoded += profile.name;
+        encoded += "^";
+        encoded += std::to_string(profile.voltage);
+        encoded += "^";
+        encoded += std::to_string(profile.wattsPer100Pixels);
+    }
+
+    return encoded;
+}
+
+std::vector<std::string> GetUserPixelProfileNames(const std::vector<UserPixelProfile>& profiles)
+{
+    std::vector<std::string> names;
+    names.reserve(profiles.size());
+    for (const auto& profile : profiles) {
+        names.push_back(profile.name);
+    }
+    return names;
+}
+
+const UserPixelProfile* FindUserPixelProfileByName(const std::vector<UserPixelProfile>& profiles, const std::string& profileName)
+{
+    auto it = std::find_if(profiles.begin(), profiles.end(), [&profileName](const UserPixelProfile& profile) {
+        return profile.name == profileName;
+    });
+    if (it == profiles.end()) {
+        return nullptr;
+    }
+
+    return &(*it);
+}
+
+void SetUserPixelProfileCatalogProvider(const std::function<std::string()>& provider)
+{
+    __profileCatalogProvider = provider;
+}
+
+double GetModelPowerLimit(const Model& model)
+{
+    const std::string& selectedProfile = model.GetVendorPixelProfile();
+    if (!selectedProfile.empty() && __profileCatalogProvider) {
+        const std::string encoded = __profileCatalogProvider();
+        const auto profiles = DeserializeUserPixelProfiles(encoded);
+        if (const auto* profile = FindUserPixelProfileByName(profiles, selectedProfile); profile != nullptr) {
+            if (profile->voltage > 0.0 && profile->wattsPer100Pixels > 0.0) {
+                return profile->wattsPer100Pixels / (100.0 * profile->voltage);
+            }
+        }
+    }
+
+    return AMPS_PER_PIXEL;
 }

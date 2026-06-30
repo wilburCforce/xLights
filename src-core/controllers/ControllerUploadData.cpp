@@ -151,7 +151,9 @@ char UDControllerPortModel::GetSmartRemoteLetter() const
 
 float UDControllerPortModel::GetAmps(int defaultBrightness) const
 {
-    return ((float)AMPS_PER_PIXEL * (float)INTROUNDUPDIV(Channels() * GetLightsPerNode(), GetChannelsPerPixel()) * GetBrightness(defaultBrightness)) / 100.0F;
+    const double ampsPerPixel = GetModelPowerLimit(*_model);
+
+    return (float)((ampsPerPixel * (double)INTROUNDUPDIV(Channels() * GetLightsPerNode(), GetChannelsPerPixel()) * (double)GetBrightness(defaultBrightness)) / 100.0);
 }
 
 int UDControllerPortModel::GetSmartTs(int currentSmartTs) const

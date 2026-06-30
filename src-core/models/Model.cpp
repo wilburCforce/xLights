@@ -2783,6 +2783,9 @@ void Model::ExportAsCustomXModel(BaseSerializingVisitor& visitor) const
     attrs.Add("CustomHeight", std::to_string(sizey));
     attrs.Add("Depth",       "1");
     attrs.Add("StringType",  GetStringType());
+    if (!GetVendorPixelProfile().empty()) {
+        attrs.Add("VendorPixelProfile", GetVendorPixelProfile());
+    }
     attrs.Add("Transparency", std::to_string(GetTransparency()));
     attrs.Add("PixelSize",   std::to_string(GetPixelSize()));
     attrs.Add("Antialias",   std::to_string((int)GetPixelStyle()));
